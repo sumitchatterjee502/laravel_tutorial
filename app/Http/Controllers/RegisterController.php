@@ -6,16 +6,27 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\BaseController as BaseController;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
+use App\Http\Services\RegisterService;
+use App\Http\Services\LoginService;
+use App\Http\Requests\RegisterRequest;
 use Validator;
 
 
 class RegisterController extends BaseController
 {
+
+    private RegisterService $registerService;
+    private LoginService $loginService;
    /**
      * Register api
      *
      * @return \Illuminate\Http\Response
      */
+    public function __construct(RegisterService $registerService, LoginService $loginService){
+        $this->registerService = $registerService;
+        $this->loginService = $loginService;
+    }
+
     public function register(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -29,13 +40,12 @@ class RegisterController extends BaseController
             return $this->sendError('Validation Error.', $validator->errors());       
         }
    
-        $input = $request->all();
-        $input['password'] = bcrypt($input['password']);
-        $user = User::create($input);
-        $success['token'] =  $user->createToken('MyApp')->accessToken;
-        $success['name'] =  $user->name;
+        //$register = new RegisterService();
+        $inputData = $request->all();
+        $outputData = $this->registerService->register($inputData);
+            
+        return $this->sendResponse($outputData, $outputData['responseMessage']);      
    
-        return $this->sendResponse($success, 'User register successfully.');
     }
    
     /**
@@ -45,15 +55,15 @@ class RegisterController extends BaseController
      */
     public function login(Request $request)
     {
-        if(Auth::attempt(['email' => $request->email, 'password' => $request->password])){ 
-            $user = Auth::user(); 
-            $success['token'] =  $user->createToken('MyApp')-> accessToken; 
-            $success['name'] =  $user->name;
-   
-            return $this->sendResponse($success, 'User login successfully.');
-        } 
-        else{ 
-            return $this->sendError('Unauthorised.', ['error'=>'Unauthorised']);
-        } 
+        $this->validate($request,[
+            'email' => 'required',
+            'password' => 'required'
+        ]);
+
+        $inputData = $request->all();
+
+        $outputData = $this->loginService->userLogin($inputData);
+
+        return $this->sendResponse($outputData, $outputData['responseMessage']);
     }
 }
